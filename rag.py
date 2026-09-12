@@ -1,77 +1,137 @@
-"""
-rag.py — Data & RAG Engine (Owner: Rameen)
-
-CONTRACT (do not change without telling the whole team):
-    retrieve_info(query: str) -> {
-        "chunks": [str, ...],      # the actual retrieved text pieces
-        "sources": [str, ...],     # matching source reference per chunk
-    }
-
-CURRENT STATE: loads the pre-built ChromaDB store from ./chroma_db
-(built once by build_index.py — this file NEVER rebuilds the index itself,
-it only reads it). If a query matches nothing meaningful, it returns empty
-lists — Afsheen's safety.py / the fallback prompt handles what happens next,
-not this file.
-"""
-
+import csv
 import os
-import chromadb
+from difflib import get_close_matches
 
-BASE_DIR = os.path.dirname(__file__)
-CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
-COLLECTION_NAME = "medicines"
+# Local medicine dataset
+CSV_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "data",
+    "medicines.csv"
+)
 
-# how many chunks to pull per query — tune this if answers feel thin or noisy
-N_RESULTS = 4
-# below this distance, a match is too weak to trust — tune based on real testing
-MAX_DISTANCE = 1.5
-
-_client = None
-_collection = None
-
-
-def _get_collection():
-    global _client, _collection
-    if _collection is None:
-        if not os.path.exists(CHROMA_PATH):
-            raise RuntimeError(
-                "No chroma_db folder found — run build_index.py first to create it."
-            )
-        _client = chromadb.PersistentClient(path=CHROMA_PATH)
-        _collection = _client.get_collection(name=COLLECTION_NAME)
-    return _collection
+# Reference sources
+SOURCES = [
+    "https://medlineplus.gov/",
+    "https://dailymed.nlm.nih.gov/dailymed/"
+]
 
 
-def retrieve_info(query: str) -> dict:
+def _load_medicines():
+    """Load medicine information from the local CSV file."""
+    medicines = []
+
+    if not os.path.exists(CSV_PATH):
+        raise FileNotFoundError(
+            f"Medicine dataset not found at: {CSV_PATH}"
+        )
+
+    with open(
+        CSV_PATH,
+        "r",
+        encoding="utf-8-sig",
+        newline=""
+    ) as f:
+        reader = csv.DictReader(f)
+
+        for row in reader:
+            medicines.append({
+                "medicine_name": row.get("medicine_name", "").strip(),
+                "drug_type": row.get("drug_type", "").strip(),
+                "main_use": row.get("main_use", "").strip(),
+                "common_forms": row.get("common_forms", "").strip(),
+                "safety_note": row.get("safety_note", "").strip(),
+                "source_reference": row.get(
+                    "source_reference", ""
+                ).strip()
+            })
+
+    return medicines
+
+
+# Load dataset once when the app starts
+_MEDICINES = _load_medicines()
+
+# Medicine names for searching
+_NAMES = [
+    medicine["medicine_name"]
+    for medicine in _MEDICINES
+    if medicine["medicine_name"]
+]
+
+
+def _fuzzy_lookup(query):
     """
-    Retrieve the most relevant chunks for a user query.
-    Returns {"chunks": [], "sources": []} if nothing good enough is found —
-    this is what feeds safety.py's "Record Not Found" fallback logic.
+    Find the closest medicine from the local dataset.
+
+    Supports:
+    1. Exact medicine name
+    2. Medicine name inside a longer question
+    3. Fuzzy matching for spelling mistakes
     """
-    if not query or not query.strip():
-        return {"chunks": [], "sources": []}
 
-    collection = _get_collection()
-    results = collection.query(query_texts=[query], n_results=N_RESULTS)
+    if not query:
+        return None
 
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
+    query = str(query).strip()
+    query_lower = query.lower()
 
-    chunks, sources = [], []
-    for doc, meta, dist in zip(documents, metadatas, distances):
-        if dist is not None and dist > MAX_DISTANCE:
-            continue  # too weak a match — don't hand it to the LLM as "real" info
-        chunks.append(doc)
-        sources.append(meta.get("source", "MedlinePlus / DailyMed / FDA"))
+    # 1. Exact medicine name or medicine name inside a question
+    for medicine in _MEDICINES:
+        name = medicine["medicine_name"].strip()
 
-    return {"chunks": chunks, "sources": sources}
+        if name and name.lower() in query_lower:
+            return medicine
+
+    # 2. Fuzzy matching
+    lower_names = [name.lower() for name in _NAMES]
+
+    matches = get_close_matches(
+        query_lower,
+        lower_names,
+        n=1,
+        cutoff=0.4
+    )
+
+    if not matches:
+        return None
+
+    matched_name = matches[0]
+
+    for medicine in _MEDICINES:
+        if medicine["medicine_name"].lower() == matched_name:
+            return medicine
+
+    return None
 
 
-if __name__ == "__main__":
-    # quick manual test — run this after build_index.py to sanity check
-    for test_query in ["What is Paracetamol used for?", "Ibuprofen side effects", "Amoxicillin allergy warning"]:
-        result = retrieve_info(test_query)
-        print("\nQuery:", test_query)
-        for c, s in zip(result["chunks"], result["sources"]):
-            print(" -", c, f"[{s}]")
+def retrieve_info(query):
+    """
+    Retrieve basic medicine information.
+
+    Returns:
+        {
+            "chunks": [...],
+            "sources": [...]
+        }
+    """
+
+    medicine = _fuzzy_lookup(query)
+
+    if not medicine:
+        return {
+            "chunks": [],
+            "sources": []
+        }
+
+    chunk = (
+        f"Medicine: {medicine['medicine_name']}\n"
+        f"Drug Type: {medicine['drug_type']}\n"
+        f"Main Use: {medicine['main_use']}\n"
+        f"Common Forms: {medicine['common_forms']}\n"
+        f"Safety Note: {medicine['safety_note']}"
+    )
+
+    return {
+        "chunks": [chunk],
+        "sources": SOURCES
+    }
