@@ -104,7 +104,7 @@ def identify_from_image(image) -> dict:
     best_score = 0.0
 
     for word in words:
-        matches = get_close_matches(word.lower(), [n.lower() for n in _MEDICINE_NAMES], n=1, cutoff=0.6)
+        matches = get_close_matches(word.lower(), [n.lower() for n in _MEDICINE_NAMES], n=1, cutoff=0.75)
         if matches:
             # crude confidence: exact-ish match length ratio
             score = len(matches[0]) / max(len(word), 1)
