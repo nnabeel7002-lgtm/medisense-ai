@@ -44,7 +44,19 @@ BRAND_ALIASES = {
     "disprin": "Aspirin",
 }
 
-OCR_SPACE_API_KEY = "K87159261788957"  
+
+
+def _get_api_key():
+    key = os.getenv("OCR_SPACE_API_KEY")
+    if key:
+        return key
+    try:
+        import streamlit as st
+        return st.secrets["OCR_SPACE_API_KEY"]
+    except Exception:
+        return "helloworld"
+
+OCR_SPACE_API_KEY = _get_api_key()
 
 
 def _load_medicine_names():
