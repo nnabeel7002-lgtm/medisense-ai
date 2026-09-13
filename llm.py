@@ -35,4 +35,4 @@ def generate_answer(query: str, chunks: list[str]) -> str:
         return response.choices[0].message.content
     except Exception as e:
         # Never let an API failure crash the app — fail safe, not loud
-        return "Sorry, I couldn't generate a response right now. Here's the raw retrieved information:\n\n" + context
+        return f"DEBUG: {e}\n\nRaw retrieved info:\n{context}"
