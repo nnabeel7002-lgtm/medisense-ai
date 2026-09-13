@@ -34,6 +34,15 @@ import requests
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "medicines.csv")
 LOW_CONFIDENCE_THRESHOLD = 0.5
+BRAND_ALIASES = {
+    "ponstan": "Mefenamic acid",
+    "panadol": "Paracetamol",
+    "brufen": "Ibuprofen",
+    "augmentin": "Amoxicillin + Clavulanic acid",
+    "flagyl": "Metronidazole",
+    "zithromax": "Azithromycin",
+    "disprin": "Aspirin",
+}
 
 OCR_SPACE_API_KEY = "K87159261788957"  
 
@@ -86,6 +95,11 @@ def identify_from_image(image) -> dict:
         return {"medicine_name": None, "confidence": 0.0}
 
     words = raw_text.split()
+    # Check brand names first — packaging usually shows brand, not generic name
+    for word in words:
+        cleaned = word.lower().strip("®™.,()")
+        if cleaned in BRAND_ALIASES:
+            return {"medicine_name": BRAND_ALIASES[cleaned], "confidence": 0.9}
     best_match = None
     best_score = 0.0
 
