@@ -35,7 +35,7 @@ import requests
 CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "medicines.csv")
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
-OCR_SPACE_API_KEY = "helloworld"  # TODO: replace with your own free key
+OCR_SPACE_API_KEY = "K87159261788957"  
 
 
 def _load_medicine_names():
