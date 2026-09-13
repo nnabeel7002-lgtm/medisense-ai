@@ -16,12 +16,15 @@ not this file.
 """
 
 import os
+import csv
+
+
 import chromadb
 
 BASE_DIR = os.path.dirname(__file__)
 CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
 COLLECTION_NAME = "medicines"
-
+CSV_PATH = os.path.join(BASE_DIR, "data", "medicines.csv")
 # how many chunks to pull per query — tune this if answers feel thin or noisy
 N_RESULTS = 4
 # below this distance, a match is too weak to trust — tune based on real testing
@@ -38,7 +41,10 @@ SOURCES = [
 _client = None
 _collection = None
 
-
+def get_medicine_names() -> list[str]:
+    """Return all known medicine names for Tab 4 dropdowns."""
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        return [row["medicine_name"] for row in csv.DictReader(f)]
 def _get_collection():
     global _client, _collection
     if _collection is None:
