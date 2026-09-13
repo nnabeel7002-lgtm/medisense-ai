@@ -100,9 +100,8 @@ with tab3:
             if not result["chunks"]:
                 response = "The requested information is not available in the verified dataset."
             else:
-                # TODO: replace this with a real LLM call using safety.SYSTEM_PROMPT
-                # + result["chunks"] as context. For now, show retrieved chunks directly.
-                response = "\n\n".join(result["chunks"])
+                import llm
+                response = llm.generate_answer(user_input, result["chunks"])
                 response += "\n\nSources: " + ", ".join(name for name, _ in result["sources"])
                 if risk == "moderate":
                     response += "\n\n*If symptoms persist or worsen, please consult a healthcare professional.*"
