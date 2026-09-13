@@ -4,3 +4,5 @@ pillow
 openai
 groq
 python-dotenv
+chromadb
+requests
