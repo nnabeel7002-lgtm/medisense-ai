@@ -93,14 +93,7 @@ INTERACTIONS = {
             "cardioprotective effect of low-dose Aspirin."
         )
     },
-    frozenset(["paracetamol", "alcohol"]): {
-        "interacts": True,
-        "severity": "severe",
-        "explanation": (
-            "Consuming Paracetamol (Acetaminophen) with alcohol significantly elevates "
-            "the risk of severe hepatotoxicity (liver damage)."
-        )
-    },
+    
     frozenset(["diclofenac", "ibuprofen"]): {
         "interacts": True,
         "severity": "severe",
@@ -116,23 +109,9 @@ INTERACTIONS = {
             "Amlodipine and Losartan are frequently co-prescribed for hypertension. "
             "However, combined use requires blood pressure monitoring to prevent hypotension."
         )
-    },
-    frozenset(["metformin", "alcohol"]): {
-        "interacts": True,
-        "severity": "severe",
-        "explanation": (
-            "Combining Metformin with alcohol increases the risk of lactic acidosis, "
-            "a serious metabolic complication."
-        )
-    },
-    frozenset(["omeprazole", "clopidogrel"]): {
-        "interacts": True,
-        "severity": "moderate",
-        "explanation": (
-            "Omeprazole may reduce the antiplatelet effectiveness of Clopidogrel "
-            "by inhibiting CYP2C19 metabolism."
-        )
     }
+   
+    
 }
 
 
@@ -163,7 +142,7 @@ def check_interaction(drug_a: str, drug_b: str) -> dict:
     return {
         "interacts": False,
         "severity": "none",
-        "explanation": f"No known major interaction found in the verified dataset between '{drug_a.title()}' and '{drug_b.title()}'."
+        "explanation": f"No interaction listed in the verified dataset between '{drug_a.title()}' and '{drug_b.title()}'."
     }
 
 
