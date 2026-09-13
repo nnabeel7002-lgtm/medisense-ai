@@ -116,5 +116,5 @@ def is_low_confidence(result: dict) -> bool:
 
 if __name__ == "__main__":
     # quick manual test — replace with a real image path to test locally
-    # print(identify_from_image("sample_package.jpg"))
+    print(identify_from_image("sample_package.jpg"))
     print("Loaded", len(_MEDICINE_NAMES), "reference medicine names for matching.")
