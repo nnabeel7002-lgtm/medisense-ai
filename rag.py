@@ -25,7 +25,7 @@ COLLECTION_NAME = "medicines"
 # how many chunks to pull per query — tune this if answers feel thin or noisy
 N_RESULTS = 4
 # below this distance, a match is too weak to trust — tune based on real testing
-MAX_DISTANCE = 1.5
+MAX_DISTANCE = 0.7
 
 # Trusted reference sources — MUST stay as (name, url) tuples.
 # app.py does: ", ".join(name for name, _ in result["sources"])
