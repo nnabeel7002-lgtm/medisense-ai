@@ -9,10 +9,12 @@ CSV_PATH = os.path.join(
     "medicines.csv"
 )
 
-# Trusted reference sources
+# Trusted reference sources — MUST stay as (name, url) tuples.
+# app.py does: ", ".join(name for name, _ in result["sources"])
+# so this shape is part of the contract — do not change to plain strings.
 SOURCES = [
-    "https://medlineplus.gov/",
-    "https://dailymed.nlm.nih.gov/dailymed/"
+    ("MedlinePlus", "https://medlineplus.gov/"),
+    ("DailyMed / FDA", "https://dailymed.nlm.nih.gov/dailymed/"),
 ]
 
 
@@ -76,7 +78,7 @@ _NAMES = [
 
 
 def get_medicine_names():
-    """Return all available medicine names."""
+    """Return all available medicine names — used by app.py Tab 4 dropdowns."""
     return [
         medicine["medicine_name"]
         for medicine in _MEDICINES
@@ -139,8 +141,8 @@ def retrieve_info(query):
 
     Returns:
         {
-            "chunks": [...],
-            "sources": [...]
+            "chunks": [str, ...],
+            "sources": [(name, url), ...]
         }
     """
 
@@ -164,3 +166,9 @@ def retrieve_info(query):
         "chunks": [chunk],
         "sources": SOURCES
     }
+
+
+if __name__ == "__main__":
+    # quick manual sanity check — run `python rag.py` to test
+    for test_query in ["Paracetamol", "ibuprofen", "Zorbaxamine"]:
+        print(test_query, "->", retrieve_info(test_query))
