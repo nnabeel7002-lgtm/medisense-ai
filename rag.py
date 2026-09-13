@@ -3,8 +3,9 @@ rag.py — Data & RAG Engine (Owner: Rameen)
 
 CONTRACT (do not change without telling the whole team):
     retrieve_info(query: str) -> {
-        "chunks": [str, ...],      # the actual retrieved text pieces
-        "sources": [str, ...],     # matching source reference per chunk
+        "chunks": [str, ...],           # the actual retrieved text pieces
+        "sources": [(name, url), ...],  # (name, url) tuples — app.py does:
+                                         # ", ".join(name for name, _ in result["sources"])
     }
 
 CURRENT STATE: loads the pre-built ChromaDB store from ./chroma_db
@@ -25,6 +26,14 @@ COLLECTION_NAME = "medicines"
 N_RESULTS = 4
 # below this distance, a match is too weak to trust — tune based on real testing
 MAX_DISTANCE = 1.5
+
+# Trusted reference sources — MUST stay as (name, url) tuples.
+# app.py does: ", ".join(name for name, _ in result["sources"])
+# so this shape is part of the contract — do not change to plain strings.
+SOURCES = [
+    ("MedlinePlus", "https://medlineplus.gov/"),
+    ("DailyMed / FDA", "https://dailymed.nlm.nih.gov/dailymed/"),
+]
 
 _client = None
 _collection = None
@@ -59,17 +68,18 @@ def retrieve_info(query: str) -> dict:
     results = collection.query(query_texts=[query], n_results=N_RESULTS)
 
     documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
-    chunks, sources = [], []
-    for doc, meta, dist in zip(documents, metadatas, distances):
+    chunks = []
+    for doc, dist in zip(documents, distances):
         if dist is not None and dist > MAX_DISTANCE:
             continue  # too weak a match — don't hand it to the LLM as "real" info
         chunks.append(doc)
-        sources.append(meta.get("source", "MedlinePlus / DailyMed / FDA"))
 
-    return {"chunks": chunks, "sources": sources}
+    if not chunks:
+        return {"chunks": [], "sources": []}
+
+    return {"chunks": chunks, "sources": SOURCES}
 
 
 if __name__ == "__main__":
@@ -77,5 +87,6 @@ if __name__ == "__main__":
     for test_query in ["What is Paracetamol used for?", "Ibuprofen side effects", "Amoxicillin allergy warning"]:
         result = retrieve_info(test_query)
         print("\nQuery:", test_query)
-        for c, s in zip(result["chunks"], result["sources"]):
-            print(" -", c, f"[{s}]")
+        source_names = ", ".join(name for name, _ in result["sources"])
+        for c in result["chunks"]:
+            print(" -", c, f"[{source_names}]")

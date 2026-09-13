@@ -7,12 +7,15 @@ CONTRACT (do not change without telling the whole team):
         "confidence": float   # 0.0 - 1.0
     }
 
-CURRENT STATE: uses pytesseract for text extraction, then fuzzy-matches
-extracted text against the known medicine list. Requires Tesseract OCR
-installed on the system (not just the pip package):
-    - Mac:   brew install tesseract
-    - Ubuntu: sudo apt-get install tesseract-ocr
-    - pip:   pip install pytesseract pillow
+CURRENT STATE: uses the OCR.space cloud API for text extraction (works on
+Pydroid 3 / Android — no local Tesseract binary needed), then fuzzy-matches
+extracted text against the known medicine list.
+
+SETUP:
+    pip install requests
+    Get a free API key at https://ocr.space/ocrapi (free tier, no card needed)
+    Replace OCR_SPACE_API_KEY below with your own key before demo day —
+    the shared "helloworld" test key is rate-limited across everyone using it.
 
 TODO (Faiza):
     1. Test against real, imperfect photos (blurry, angled, poor lighting) —
@@ -20,23 +23,28 @@ TODO (Faiza):
        about low confidence, not falsely confident.
     2. Tune the confidence threshold below (LOW_CONFIDENCE_THRESHOLD) based on
        real test results.
-    3. If Tesseract accuracy is too poor on real photos, fall back to a cloud
-       OCR API — flag this to the team early, not at hour 15.
+    3. This requires internet access at OCR time — don't test in airplane mode.
 """
 
 import csv
 import os
 from difflib import get_close_matches
 
-try:
-    import pytesseract
-    from PIL import Image
-except ImportError:
-    pytesseract = None
-    Image = None
+import requests
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "medicines.csv")
 LOW_CONFIDENCE_THRESHOLD = 0.5
+BRAND_ALIASES = {
+    "ponstan": "Mefenamic acid",
+    "panadol": "Paracetamol",
+    "brufen": "Ibuprofen",
+    "augmentin": "Amoxicillin + Clavulanic acid",
+    "flagyl": "Metronidazole",
+    "zithromax": "Azithromycin",
+    "disprin": "Aspirin",
+}
+
+OCR_SPACE_API_KEY = "K87159261788957"  
 
 
 def _load_medicine_names():
@@ -48,14 +56,31 @@ _MEDICINE_NAMES = _load_medicine_names()
 
 
 def _extract_text(image) -> str:
-    """Run OCR on the image. `image` can be a file path or a PIL Image."""
-    if pytesseract is None:
-        raise RuntimeError("pytesseract not installed — run: pip install pytesseract pillow")
-
+    """
+    Run OCR via the OCR.space cloud API. `image` can be a file path (str)
+    or an already-open file-like object (e.g. Streamlit's uploaded_file).
+    """
     if isinstance(image, str):
-        image = Image.open(image)
+        file_obj = open(image, "rb")
+        should_close = True
+    else:
+        file_obj = image
+        should_close = False
 
-    return pytesseract.image_to_string(image)
+    try:
+        response = requests.post(
+            "https://api.ocr.space/parse/image",
+            files={"filename": file_obj},
+            data={"apikey": OCR_SPACE_API_KEY, "language": "eng"},
+            timeout=15,
+        )
+        result = response.json()
+        return result["ParsedResults"][0]["ParsedText"]
+    except (requests.RequestException, KeyError, IndexError, ValueError):
+        return ""
+    finally:
+        if should_close:
+            file_obj.close()
 
 
 def identify_from_image(image) -> dict:
@@ -64,15 +89,17 @@ def identify_from_image(image) -> dict:
     medicine list. Returns None/0.0 confidence if nothing usable is found —
     NEVER guess a name just to return something.
     """
-    try:
-        raw_text = _extract_text(image)
-    except Exception:
-        return {"medicine_name": None, "confidence": 0.0}
+    raw_text = _extract_text(image)
 
     if not raw_text.strip():
         return {"medicine_name": None, "confidence": 0.0}
 
     words = raw_text.split()
+    # Check brand names first — packaging usually shows brand, not generic name
+    for word in words:
+        cleaned = word.lower().strip("®™.,()")
+        if cleaned in BRAND_ALIASES:
+            return {"medicine_name": BRAND_ALIASES[cleaned], "confidence": 0.9}
     best_match = None
     best_score = 0.0
 
@@ -103,5 +130,5 @@ def is_low_confidence(result: dict) -> bool:
 
 if __name__ == "__main__":
     # quick manual test — replace with a real image path to test locally
-    # print(identify_from_image("sample_package.jpg"))
+    print(identify_from_image("sample_package.jpeg"))
     print("Loaded", len(_MEDICINE_NAMES), "reference medicine names for matching.")
