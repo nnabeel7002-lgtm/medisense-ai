@@ -2,5 +2,5 @@ streamlit
 pytesseract
 pillow
 openai
-anthropic
+groq
 python-dotenv
