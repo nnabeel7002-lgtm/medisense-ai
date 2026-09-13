@@ -115,7 +115,7 @@ with tab3:
 with tab4:
     st.subheader("Check interactions between two medicines")
 
-    medicine_names = [m["medicine_name"] for m in rag._MEDICINES]
+    medicine_names = rag.get_medicine_names()
     col1, col2 = st.columns(2)
     with col1:
         drug_a = st.selectbox("First medicine", medicine_names, key="drug_a")
