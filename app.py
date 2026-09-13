@@ -14,6 +14,8 @@ import streamlit as st
 import rag
 import safety
 import ocr
+from dotenv import load_dotenv
+load_dotenv()
 
 st.set_page_config(page_title="MediSense AI", layout="wide")
 
