@@ -34,9 +34,13 @@ def _get_collection():
     global _client, _collection
     if _collection is None:
         if not os.path.exists(CHROMA_PATH):
-            raise RuntimeError(
-                "No chroma_db folder found — run build_index.py first to create it."
-            )
+            # Self-healing: chroma_db is never pushed to GitHub (too large),
+            # so on a fresh clone or a fresh Streamlit Cloud deploy it won't
+            # exist yet. Build it once here instead of crashing — this takes
+            # ~1-2 minutes the FIRST time only (downloads the embedding model).
+            print("No chroma_db found — building it now (first run only)...")
+            from build_index import build_index
+            build_index()
         _client = chromadb.PersistentClient(path=CHROMA_PATH)
         _collection = _client.get_collection(name=COLLECTION_NAME)
     return _collection
